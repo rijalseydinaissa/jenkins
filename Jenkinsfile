@@ -9,6 +9,7 @@ pipeline {
     environment {
         MAVEN_OPTS = '-Xmx1024m'
         APP_NAME = 'jenkins-demo'
+        APP_PORT = '8081'   // Centralized port var for easy changes
     }
 
     stages {
@@ -58,26 +59,40 @@ pipeline {
                 echo '🚀 Démarrage de l\'application...'
                 script {
                     // Arrêter l'ancienne instance si elle existe (plus précis)
-                    sh 'pkill -f jenkins-demo.jar || true'
+                    sh "pkill -f ${APP_NAME}.jar || true"
                     sleep 2  // Petit délai pour cleanup
 
                     // Démarrer la nouvelle instance en arrière-plan avec plus de mémoire
-                    sh 'nohup java -Xmx1024m -jar target/jenkins-demo.jar > app.log 2>&1 &'
+                    sh "nohup java -Xmx1024m -jar target/${APP_NAME}.jar > app.log 2>&1 &"
                     echo '📝 Logs de démarrage dans app.log...'
 
-                    // Attendre que l'app démarre (augmenté à 30s)
-                    sleep 30
-
-                    // Debug : Afficher les dernières lignes des logs (optionnel)
-                    sh 'tail -n 20 app.log || true'
-
-                    // Vérifier que l'app répond (avec timeout pour éviter les hangs)
-                    timeout(time: 30, unit: 'SECONDS') {
-                        sh 'curl -f -s http://localhost:8081/actuator/health || exit 1'
+                    // Amélioration: Boucle de retry pour attendre le démarrage (max 60s, 6 tentatives de 10s)
+                    def maxRetries = 6
+                    def retryCount = 0
+                    def healthy = false
+                    while (retryCount < maxRetries && !healthy) {
+                        sleep 10
+                        def curlResult = sh(script: "curl -f -s http://localhost:${APP_PORT}/actuator/health || echo 'UNHEALTHY'", returnStdout: true).trim()
+                        if (curlResult == '{"status":"UP"}') {  // Assumes standard actuator JSON response
+                            healthy = true
+                            echo '✅ Application healthy!'
+                        } else {
+                            retryCount++
+                            echo "⏳ Tentative ${retryCount}/${maxRetries} - Statut: ${curlResult}"
+                            sh 'tail -n 10 app.log || true'  // Debug logs each retry
+                        }
+                    }
+                    if (!healthy) {
+                        echo '❌ App not healthy after retries. Full log:'
+                        sh 'cat app.log'
+                        error('App startup failed - check app.log for details')
                     }
 
+                    // Debug : Afficher les dernières lignes des logs (optionnel, après succès)
+                    sh 'tail -n 20 app.log || true'
+
                     echo '✅ Application déployée avec succès!'
-                    echo '🌐 Accessible sur: http://localhost:8081'
+                    echo "🌐 Accessible sur: http://localhost:${APP_PORT}"
                 }
             }
         }
@@ -88,8 +103,8 @@ pipeline {
             }
             steps {
                 echo '🏥 Vérification de santé de l\'application...'
-                sh 'curl -f -s http://localhost:8081/ || exit 1'
-                sh 'curl -f -s http://localhost:8081/api/demo || exit 1'
+                sh "curl -f -s http://localhost:${APP_PORT}/ || exit 1"
+                sh "curl -f -s http://localhost:${APP_PORT}/api/demo || exit 1"
                 echo '✅ Tous les endpoints fonctionnent!'
             }
         }
@@ -98,20 +113,22 @@ pipeline {
     post {
         always {
             echo '📋 Pipeline terminé!'
-            archiveArtifacts artifacts: 'target/jenkins-demo.jar, app.log', fingerprint: true, allowEmptyArchive: true
+            archiveArtifacts artifacts: "target/${APP_NAME}.jar, app.log", fingerprint: true, allowEmptyArchive: true
         }
         success {
             echo '🎉 SUCCESS: Le déploiement a réussi!'
-            echo '🌐 Application disponible sur http://localhost:8081'
+            echo "🌐 Application disponible sur http://localhost:${APP_PORT}"
         }
         failure {
             echo '❌ FAILURE: Le pipeline a échoué!'
             echo '🔍 Vérifiez app.log dans les artifacts pour plus de détails.'
+            // Optionnel: Envoyer une notification (e.g., emailext)
         }
         cleanup {
             // Arrêter l'app à la fin pour cleanup (même en cas d'échec)
             script {
-                sh 'pkill -f jenkins-demo.jar || true'
+                sh "pkill -f ${APP_NAME}.jar || true"
+                sleep 2  // Délai pour graceful shutdown
             }
             cleanWs()
         }
