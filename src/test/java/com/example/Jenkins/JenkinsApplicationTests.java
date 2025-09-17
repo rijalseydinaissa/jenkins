@@ -1,25 +1,26 @@
 package com.example.Jenkins;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
-
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class JenkinsApplicationTests {
 
-    @LocalServerPort  /*Récupère le port utilisé*/
+    @LocalServerPort
     private int port;
 
-    @Test
-    void testHomePage() throws Exception {
-        String url = "http://localhost:" + port + "/";
-        TestRestTemplate restTemplate = null;
-        String response = restTemplate.getForObject(url, String.class);
-        assertThat(response).contains("Hello Jenkins Demo!");  /*Vérifie la réponse*/
-    }
+    @Autowired
+    private TestRestTemplate restTemplate;
 
+    @Test
+    void testHomePage() {
+        String url = "http://localhost:" + port + "/";
+        String response = restTemplate.getForObject(url, String.class);
+        assertThat(response).contains("Hello Jenkins Demo!");
+    }
 }
