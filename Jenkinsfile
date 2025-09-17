@@ -62,16 +62,16 @@ pipeline {
                     sh 'pkill -f "jenkins-demo" || true'
 
                     // Démarrer la nouvelle instance en arrière-plan
-                    sh 'nohup java -jar target/jenkins-demo-1.0.0.jar > app.log 2>&1 &'
+                    sh 'nohup java -jar target/jenkins-demo.jar > app.log 2>&1 &'
 
                     // Attendre que l'app démarre
                     sleep 10
 
                     // Vérifier que l'app répond
-                    sh 'curl -f http://localhost:8080/health || exit 1'
+                    sh 'curl -f http://localhost:8081/actuator/health || exit 1'
 
                     echo '✅ Application déployée avec succès!'
-                    echo '🌐 Accessible sur: http://localhost:8080'
+                    echo '🌐 Accessible sur: http://localhost:8081'
                 }
             }
         }
@@ -79,8 +79,8 @@ pipeline {
         stage('✅ Health Check') {
             steps {
                 echo '🏥 Vérification de santé de l\'application...'
-                sh 'curl -f http://localhost:8080/'
-                sh 'curl -f http://localhost:8080/api/demo'
+                sh 'curl -f http://localhost:8081/'
+                sh 'curl -f http://localhost:8081/api/demo'
                 echo '✅ Tous les endpoints fonctionnent!'
             }
         }
@@ -89,11 +89,11 @@ pipeline {
     post {
         always {
             echo '📋 Pipeline terminé!'
-            archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+            archiveArtifacts artifacts: 'target/jenkins-demo.jar', fingerprint: true
         }
         success {
             echo '🎉 SUCCESS: Le déploiement a réussi!'
-            echo '🌐 Application disponible sur http://localhost:8080'
+            echo '🌐 Application disponible sur http://localhost:8081'
         }
         failure {
             echo '❌ FAILURE: Le pipeline a échoué!'
