@@ -3,8 +3,7 @@ pipeline {
 
     tools {
         maven 'Maven-3.9.0'
-        jdk 'JDK-21'   // 🔹 doit correspondre au nom que tu as mis dans "Global Tool Configuration" sinon erreur
-    }
+        jdk 'JDK-21'
 
     environment {
         MAVEN_OPTS = '-Xmx1024m'
@@ -110,3 +109,4 @@ pipeline {
         }
     }
 }
+
