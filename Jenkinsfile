@@ -3,12 +3,12 @@ pipeline {
 
     tools {
         maven 'Maven-3.9.0'
-        jdk 'JDK-21'
+        jdk 'JDK-21'   // 🔹 doit correspondre au nom que tu as mis dans "Global Tool Configuration" sinon erreur
     }
 
     environment {
         MAVEN_OPTS = '-Xmx1024m'
-        RENDER_SERVICE_ID = 'srv-d3620j0dl3ps739cl4l0'  // Remplacez par l'ID réel (ex. srv-abc123)
+        RENDER_SERVICE_ID = 'srv-d3620j0dl3ps739cl4l0'  // Ton ID Render
         RENDER_APP_URL = 'https://jenkins-demo-2wrc.onrender.com'
     }
 
@@ -17,6 +17,14 @@ pipeline {
             steps {
                 echo '📦 Récupération du code source...'
                 checkout scm
+            }
+        }
+
+        stage('🔍 Check Java & Maven') {
+            steps {
+                echo '🔍 Vérification des versions de Java et Maven...'
+                sh 'java -version'
+                sh 'mvn -version'
             }
         }
 
@@ -66,14 +74,14 @@ pipeline {
                 }
                 echo '✅ Déploiement déclenché sur Render ! Vérifiez le statut dans le dashboard Render.'
 
-                // Optionnel : Attendre et checker le statut du deploy (ajout pour robustesse)
+                // Optionnel : Attendre et checker le statut du deploy
                 script {
-                    sleep 30  // Attendre un peu
+                    sleep 30
                     def status = sh(
                         script: """
                             curl -s -H "Authorization: Bearer \${API_KEY}" \\
                                  https://api.render.com/v1/services/\${RENDER_SERVICE_ID}/deploys | \\
-                            jq -r '.[0].status'  # Nécessite jq installé sur l'agent Jenkins
+                            jq -r '.[0].status'
                         """,
                         returnStdout: true
                     ).trim()
@@ -92,7 +100,7 @@ pipeline {
         }
         success {
             echo '🎉 SUCCESS: Le déploiement a réussi!'
-            echo "🌐 App accessible sur: https://votre-app.onrender.com"  // Remplacez par votre URL Render
+            echo "🌐 App accessible sur: ${RENDER_APP_URL}"
         }
         failure {
             echo '❌ FAILURE: Le pipeline a échoué!'
